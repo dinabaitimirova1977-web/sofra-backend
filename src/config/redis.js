@@ -1,24 +1,51 @@
-const { createClient } = require('redis');
-
-const client = createClient({
-  url: process.env.REDIS_URL || 'redis://:redis123@localhost:6379',
-});
-
-client.on('error',   (err) => console.error('Redis error:', err.message));
-client.on('connect', ()    => console.log('✅ Redis connected'));
+let client = null;
+let isConnected = false;
 
 const connect = async () => {
-  if (!client.isOpen) await client.connect();
+  const redisUrl = process.env.REDIS_URL;
+  if (!redisUrl) {
+    console.warn('⚠️ REDIS_URL not set, Redis disabled');
+    return;
+  }
+  try {
+    const { createClient } = require('redis');
+    client = createClient({ url: redisUrl });
+    client.on('error', (err) => console.warn('Redis error:', err.message));
+    await client.connect();
+    isConnected = true;
+    console.log('✅ Redis connected');
+  } catch (err) {
+    console.warn('⚠️ Redis not available:', err.message);
+    client = null;
+    isConnected = false;
+  }
 };
 
-const set = (key, value, ttl = 3600) =>
-  client.setEx(key, ttl, JSON.stringify(value));
+const set = async (key, value, ttl = 3600) => {
+  if (!isConnected || !client) return null;
+  try {
+    return await client.setEx(key, ttl, JSON.stringify(value));
+  } catch (e) { return null; }
+};
 
 const get = async (key) => {
-  const val = await client.get(key);
-  return val ? JSON.parse(val) : null;
+  if (!isConnected || !client) return null;
+  try {
+    const val = await client.get(key);
+    return val ? JSON.parse(val) : null;
+  } catch (e) { return null; }
 };
 
-const del = (key) => client.del(key);
+const del = async (key) => {
+  if (!isConnected || !client) return null;
+  try { return await client.del(key); } catch (e) { return null; }
+};
 
-module.exports = { connect, set, get, del, client };
+const getClient = () => client;
+
+module.exports = { connect, set, get, del, client: new Proxy({}, {
+  get: (_, prop) => {
+    if (client) return client[prop];
+    return async () => null;
+  }
+})};
