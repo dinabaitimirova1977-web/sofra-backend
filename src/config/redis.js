@@ -45,7 +45,11 @@ const getClient = () => client;
 
 module.exports = { connect, set, get, del, client: new Proxy({}, {
   get: (_, prop) => {
-    if (client) return client[prop];
+    if (client) {
+      const value = client[prop];
+      return typeof value === "function" ?
+    value.bind(client) : value;
+    }
     return async () => null;
   }
 })};
