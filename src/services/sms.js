@@ -1,7 +1,7 @@
 const redis = require('../config/redis');
 const crypto = require('crypto');
 
-const OTP_TTL     = 120;  // 2 минуты 
+const OTP_TTL     = 600;  // 10 минуты (временно для тестирования)
 const OTP_LENGTH  = 6;
 const MAX_ATTEMPTS = 3;   // максимум попыток ввода
 const MAX_SENDS   = 5;    // максимум отправок в час с одного номера
