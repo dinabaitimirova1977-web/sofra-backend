@@ -213,11 +213,21 @@ router.patch(
           return res.status(400).json({ error: `Нельзя перейти в статус "${status}" из "${order.status}"` });
       }
 
-      const { rows: [updated] } = await db.query(
-        `UPDATE orders SET status = $1, updated_at = NOW()
-         WHERE id = $2 RETURNING *`,
-        [status, order.id]
-      );
+      let updated;
+      if (status === 'picked_up' && req.user.role === 'courier') {
+        ({ rows: [updated] } = await db.query(
+          `UPDATE orders SET status = $1, courier_id = $2, updated_at = NOW()
+           WHERE id = $3 RETURNING *`,
+          [status, req.user.id, order.id]
+        ));
+      } else {
+        ({ rows: [updated] } = await db.query(
+          `UPDATE orders SET status = $1, updated_at = NOW()
+           WHERE id = $2 RETURNING *`,
+          [status, order.id]
+        ));
+      }
+
 
       // Публикуем событие для сокетов и push
       await publishEvent('order.status_changed', {
