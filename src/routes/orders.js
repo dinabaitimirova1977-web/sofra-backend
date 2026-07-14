@@ -141,7 +141,7 @@ router.get('/', auth, async (req, res) => {
         JOIN users u ON o.client_id = u.id
         JOIN users uc ON o.client_id = uc.id
         JOIN users u2 ON o.cook_id = u2.id
-        WHERE o.courier_id = $1 ${statusFilter}
+        WHERE (o.courier_id = $1 OR (o.courier_id IS NULL AND o.status = 'ready')) ${statusFilter}
         ORDER BY o.created_at DESC
         LIMIT ${limit} OFFSET ${offset}`;
       params = status ? [req.user.id, status] : [req.user.id];
