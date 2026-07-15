@@ -145,7 +145,30 @@ router.get('/', auth, async (req, res) => {
         ORDER BY o.created_at DESC
         LIMIT ${limit} OFFSET ${offset}`;
       params = status ? [req.user.id, status] : [req.user.id];
-    }
+    } else if (req.user.role === 'admin') {
+        query = `
+          SELECT o.*,
+            uc.name AS client_name, uc.phone AS client_phone,
+            ucook.name AS cook_name,
+            ucourier.name AS courier_name,
+            json_agg(json_build_object(
+              'dish_id', oi.dish_id, 'name', d.name,
+              'quantity', oi.quantity, 'price', oi.price_at_order
+            )) AS items
+          FROM orders o
+          JOIN users uc ON o.client_id = uc.id
+          JOIN users ucook ON o.cook_id = ucook.id
+          LEFT JOIN users ucourier ON o.courier_id = ucourier.id
+          JOIN order_items oi ON oi.order_id = o.id
+          JOIN dishes d ON d.id = oi.dish_id
+          ${status ? 'WHERE o.status = $1' : ''}
+          GROUP BY o.id, uc.name, uc.phone, ucook.name, ucourier.name
+          ORDER BY o.created_at DESC
+          LIMIT ${limit} OFFSET ${offset}`;
+        params = status ? [status] : [];
+      }
+
+
 
     const { rows } = await db.query(query, params);
     res.json(rows);
