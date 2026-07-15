@@ -30,6 +30,15 @@ router.post(
       return res.status(400).json({ errors: errors.array() });
 
     const phone = normalizePhone(req.body.phone);
+    const role = req.body.role;
+
+if (role === 'admin') {
+  const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim());
+  if (!adminPhones.includes(phone)) {
+    return res.status(403).json({ error: 'Доступ к роли admin запрещён для этого номера' });
+  }
+}
+
 
     try {
       // Проверяем — зарегистрирован ли номер
@@ -78,7 +87,12 @@ router.post(
 
     const { code, name, role, is_new_user } = req.body;
     const phone = normalizePhone(req.body.phone);
-
+if (role === 'admin') {
+  const adminPhones = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim());
+  if (!adminPhones.includes(phone)) {
+    return res.status(403).json({ error: 'Доступ к роли admin запрещён для этого номера' });
+  }
+}
     try {
       // Проверяем OTP
       await verifyOTP(phone, code);
