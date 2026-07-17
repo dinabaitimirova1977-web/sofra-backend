@@ -7,4 +7,13 @@ const pool = new Pool(
 pool.on('error', (err) => { console.error('DB error:', err.message); });
 const query = (t, p) => pool.query(t, p);
 const getClient = () => pool.connect();
+
+// Миграция: добавляем координаты повара, если их ещё нет
+query(`
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS lat DECIMAL(10, 8);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS lng DECIMAL(11, 8);
+`).then(() => console.log('✅ Migration: lat/lng columns ready'))
+  .catch((err) => console.error('❌ Migration error:', err.message));
+
 module.exports = { query, getClient, pool };
+
