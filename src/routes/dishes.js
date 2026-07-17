@@ -3,10 +3,10 @@ const { body, validationResult } = require('express-validator');
 const db = require('../config/db');
 const { auth, role } = require('../middleware/auth');
 
-// ─── GET /api/dishes ── Список блюд (с фильтрами) ─────────────────────────
+// ─── GET /api/dishes ── Список блюд (с фильтрами + геолокация) ────────────
 router.get('/', async (req, res) => {
   try {
-    const { category, cook_id, search, limit = 20, offset = 0 } = req.query;
+    const { category, cook_id, search, limit = 20, offset = 0, lat, lng } = req.query;
 
     let conditions = ['d.is_available = true'];
     const params = [];
@@ -25,14 +25,34 @@ router.get('/', async (req, res) => {
     }
 
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // Если переданы координаты клиента — считаем расстояние по формуле Haversine (км)
+    let distanceSelect = '';
+    let orderBy = 'ORDER BY d.created_at DESC';
+
+    if (lat && lng) {
+      params.push(parseFloat(lat), parseFloat(lng));
+      const latIdx = params.length - 1;
+      const lngIdx = params.length;
+      distanceSelect = `,
+        (6371 * acos(
+          cos(radians($${latIdx})) * cos(radians(u.lat)) *
+          cos(radians(u.lng) - radians($${lngIdx})) +
+          sin(radians($${latIdx})) * sin(radians(u.lat))
+        )) AS distance_km`;
+      orderBy = 'ORDER BY distance_km ASC NULLS LAST';
+    }
+
     params.push(limit, offset);
 
     const { rows } = await db.query(
-      `SELECT d.*, u.name AS cook_name, u.rating AS cook_rating, u.avatar_url AS cook_avatar
+      `SELECT d.*, u.name AS cook_name, u.rating AS cook_rating, u.avatar_url AS cook_avatar,
+              u.lat AS cook_lat, u.lng AS cook_lng
+              ${distanceSelect}
        FROM dishes d
        JOIN users u ON d.cook_id = u.id
        ${where}
-       ORDER BY d.created_at DESC
+       ${orderBy}
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
@@ -125,3 +145,4 @@ router.delete('/:id', auth, role('cook'), async (req, res) => {
 });
 
 module.exports = router;
+
