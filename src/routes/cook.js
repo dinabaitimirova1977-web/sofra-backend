@@ -474,4 +474,34 @@ router.get('/public/:id', async (req, res) => {
   }
 });
 
+// ─── PATCH /api/cook/location ─────────────────────────────────────────────
+// Повар обновляет свои координаты (для геопоиска клиентами)
+router.patch(
+  '/location',
+  auth, role('cook'),
+  [
+    body('lat').isFloat({ min: -90, max: 90 }).withMessage('Некорректная широта'),
+    body('lng').isFloat({ min: -180, max: 180 }).withMessage('Некорректная долгота'),
+  ],
+  async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty())
+      return res.status(400).json({ errors: errors.array() });
+
+    const { lat, lng } = req.body;
+
+    try {
+      await db.query(
+        'UPDATE users SET lat = $1, lng = $2, updated_at = NOW() WHERE id = $3',
+        [lat, lng, req.user.id]
+      );
+      res.json({ message: 'Координаты обновлены', lat, lng });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'Ошибка сервера' });
+    }
+  }
+);
+
 module.exports = router;
+
